@@ -1,0 +1,426 @@
+\documentclass[12pt, letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{dirtree}
+\usepackage{hyperref}
+\usepackage{setspace}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
+}
+
+\newcommand*{\QEDB}{\null\nobreak\hfill\ensuremath{\square}}%
+\newcommand\tab[1][1cm]{\hspace*{#1}}
+\newcommand\tabd[1][0.2cm]{\hspace*{#1}}
+
+\lstset{
+  language     = C++,
+  basicstyle   = \small,
+  keywordstyle = \color{black}\textbf,
+  commentstyle = \color{blue},
+  stringstyle  = \color{green!70!black},
+  stringstyle  = \color{gray},
+  columns      = fullflexible,
+  numbers      = left,
+  numberstyle  = \scriptsize\sffamily\color{gray},
+  showstringspaces = false,
+  float,
+}
+
+\author{
+        Joao Felipe Bianchi Curcio\\
+        Jonas Edward Tashiro\\ 
+        Luan Lopes Barbosa de Almeida\\ 
+        Rafael Melloni Chacon Arnone\\ 
+       }
+
+\date{}
+\title{
+    \Huge{Calculo de Integrais}
+}
+
+\begin{document}
+
+\maketitle
+%\begin{center}
+%\hypertarget{loretta}{}
+%\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Organização de Pastas}
+
+\dirtree{%
+  .1 src.
+  .2 exp.
+  .3 {definitions.h}.
+  .3 {expression.h}.
+  .3 {lexicon.h}.
+  .3 {token.h}.
+  .3 {lexicon.cpp}.
+  .3 {expression.cpp}.
+  .3 {token.cpp}.
+  .2 integral.
+  .3 {integral.h}.
+  .3 {integral.cpp}.
+  .2 {Makefile}.
+  .2 {main.cpp}.
+}
+
+\section{Conteudo dos Arquivos}
+\subsection{Pasta src}
+
+\begin{spacing}{2.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=main.cpp]
+#include "exp/expression.h"
+#include "exp/token.h"
+#include "integral/integral.h"
+#include <ios>
+#include <ostream>
+#include <string>
+#include <iostream>
+#include <utility>
+#include <vector>
+#include <limits>
+#include <iomanip>
+
+int main() {
+    bool quit = false;
+    bool cannot_be_conv = false;
+    std::string user_expr;
+    std::string user_info1, user_info2;
+    int numTrapz, precision;
+    double start, end;
+    std::vector<std::pair<double, double>> fnTable;
+
+    Expression *expression;
+    do
+    {
+        std::cout << "\nEscreva uma expressao:\n";
+        std::cout << "f(x) = ";
+        std::getline(std::cin, user_expr);
+        user_expr += ';';
+        std::endl(std::cout);
+
+        if(!addSpaces(user_expr))
+        {
+            expression = new Expression(user_expr);
+            if(expression->isValid())
+            {
+                expression->infixToPostfix();
+                do{
+                    std::cout << "\nEscreva o ponto extremo da esquerda:\n";
+                    std::cin >> user_info1; 
+                    std::cout << "Escreva o ponto extremo da direita:\n";
+                    std::cin >> user_info2; 
+                    try{
+                        start = std::stold(user_info1.data()); 
+                        end = std::stold(user_info2.data()); 
+                        cannot_be_conv = false;
+                        user_info1.clear(), user_info2.clear();
+                    }catch (std::invalid_argument){
+                        std::cout << "Uma variavel foi escrita de 
+                                      forma indevida";
+                        cannot_be_conv = true;                    
+                    }
+                }while (cannot_be_conv);
+
+                do {
+                    std::cout << "\nEscreva o numero de casas decimais\n"; 
+                    std::cin >> user_info1; 
+                    std::cout << "Escreva o numero de trapezios:\n";
+                    std::cin >> user_info2; 
+                    try {
+                        precision = std::stoi(user_info1.data());
+                        numTrapz = std::stoi(user_info2.data());
+                        cannot_be_conv = false;                    
+                        user_info1.clear(), user_info2.clear();
+                    } catch (std::invalid_argument) {
+                        std::cout << "Uma variavel foi escrita de 
+                                      forma indevida";
+                        cannot_be_conv = true;
+                    }
+                }while (cannot_be_conv);
+
+                std::cout << std::fixed;
+                std::cout << std::setprecision(precision + 1);
+                
+                TrapezoidIntegral integralCalc(start,end,numTrapz,precision);
+                integralCalc.calculateIntegral(*expression, fnTable);
+
+                std::cout << "\n\nSaida:\n\n";
+                std::cout << "Erro de arredondamento = " 
+                          << integralCalc.errorRounding;
+
+                std::cout << std::fixed;
+                std::cout << std::setprecision(precision);
+
+                std::cout << "\nValor da Integral = " 
+                          << integralCalc.sumTraps;
+                std::cout << "\nTabela de Valores:\n";
+                std::cout << 'x'; 
+
+                for (int i = -1; i <= precision; i++)
+                    std::cout << ' ';
+
+                std::cout << "| " << "f(x)" << '\n';
+                for (auto f : fnTable)
+                    std::cout << f.first << " | " << f.second << '\n';
+                delete expression;
+            }
+            else
+                std::cout << "\nA expressao fornecida contem erro\n";
+        }
+        else
+            std::cout << "\nErro Lexico detectado na expressao fornecida\n";
+
+        std::cout << "Deseja sair do programa?\n";
+        std::cout << "Sim (Escreva q)\t Nao (Escreva qualquer coisa)\n";
+        std::cin >> user_info1;
+        if(user_info1 == "q")
+            quit = true;
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+        user_expr.clear();
+        user_info1.clear(); 
+        std::cout << "\033[2J\033[1;1H";
+
+    }while (!quit); 
+    return 0;
+}
+\end{lstlisting}
+
+\newpage
+
+\tabd Este proximo arquivo tem como intuito facilitar o processo de compilação.
+\begin{lstlisting}[caption=Makefile]
+EXPRESSION = ./exp
+INTEGRAL = ./integral
+SOURCES = main.cpp
+SOURCES += $(EXPRESSION)/expression.cpp $(EXPRESSION)/lexicon.cpp 
+SOURCES += $(EXPRESSION)/token.cpp
+SOURCES += $(INTEGRAL)/integral.cpp
+OBJECTS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
+
+
+COMPILE : LINK 
+	g++ -o main $(OBJECTS) 
+
+LINK:
+	g++ -c $(SOURCES)
+
+clean:
+	rm $(OBJECTS)
+  
+\end{lstlisting}
+
+\newpage
+\subsection{Pasta exp}
+
+\begin{spacing}{2.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=definition.h]
+#pragma once
+#include <utility>
+#define FAILURE false
+#define SUCCESS true
+
+using AtributeValue = int;
+using Priority = int;
+using Token_name = int;
+using Token_type = 
+    enum : int
+    {
+        endExpression,
+        leftParen,
+        rightParen,
+        unaryOp,
+        binaryOp,
+        operand,
+        number
+    };
+
+using Token = std::pair<Token_name,AtributeValue>;
+\end{lstlisting}
+
+\begin{spacing}{3.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=expression.h]
+#pragma once
+#include <queue>
+#include <list>
+#include <map>
+#include <string>
+#include <utility>
+#include "definitions.h"
+#include "lexicon.h"
+
+using ErrorCode = bool;
+
+class Expression
+{
+    std::list<Token> tokenized_expr;
+    Lexicon symbol_table;
+    public:
+        Expression();
+        Expression(std::string &expression); //Tokenize the expression
+        ErrorCode infixToPostfix(); //certify that expression is valid first
+        ErrorCode evaluateAt(double x, double &f_of_x);
+        void tokenizeExpression(std::string &expression);
+        void getIteratorRange(std::list<Token>::iterator &start,
+                              std::list<Token>::iterator &end); 
+        ErrorCode isValid();     //check for infix
+    private:
+        void removeFirstToken(); //move back to private
+        void addToken(Token &new_token);
+        float do_unary(double x, Token_name type);
+        float do_binary(double x, double y, Token_name type);
+};
+
+/*Autenticate lexical correctness of expression before sending to the class*/
+/*Also add whitespace to better identify lexemes*/
+ErrorCode addSpaces(std::string &expression);
+
+\end{lstlisting}
+
+\begin{spacing}{3.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=token.h]
+#pragma once
+#include "definitions.h"
+#include <string>
+
+struct Token_data
+{
+    std::string name;
+    double value;
+    Priority priority;
+    Token_data(std::string token_name, double value, Priority priority);
+};
+\end{lstlisting}
+
+\begin{spacing}{3.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=lexicon.h]
+#include <map>
+#include <string>
+#include <vector>
+#include "definitions.h"
+#include "token.h"
+#define NON_EXISTENT -1
+
+class Lexicon
+{
+    //shall only be used to setup expression
+    std::map<std::string, AtributeValue> lexeme_map; 
+    std::vector<Token_data*> symbol_table;
+    public:
+        Lexicon() = default;
+        void setStandardTokens();   //sets up the map to lexemes
+        Token_data* getTokenInfo(AtributeValue token_id); 
+        AtributeValue newToken(Token_data *new_token);
+        AtributeValue findAtribute(std::string &lexeme);
+};
+\end{lstlisting}
+
+\newpage
+\subsection{Pasta integral}
+
+\begin{spacing}{2.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=integral.h]
+#include "../exp/expression.h"
+#include <utility>
+#include <vector>
+
+struct TrapezoidIntegral
+{
+    int nOfTrapz;
+    int precision;
+    double errorRounding;
+    double sumTraps;
+    double x_start, x_end;
+    void calculateIntegral(Expression &expr,
+        std::vector<std::pair<double, double>> &fnTable);
+    TrapezoidIntegral() = default;
+    TrapezoidIntegral(double start, double end, int num, int precision);
+};
+\end{lstlisting}
+
+\begin{spacing}{3.5}
+\end{spacing}
+
+\begin{lstlisting}[caption=integral.cpp]
+#include "integral.h"
+#include <cmath>
+#include <math.h>
+#include <utility>
+#include <vector>
+
+void setNumber(int precision, double &value);
+
+TrapezoidIntegral::TrapezoidIntegral(double start, double end,
+                                  int num, int precision)
+{
+    x_start = start;
+    x_end = end;
+    nOfTrapz = num;
+    this->precision = precision;
+}
+
+void TrapezoidIntegral::calculateIntegral(Expression &expr,
+        std::vector<std::pair<double, double>> &fnTable)
+{
+    double increment = std::abs(x_end - x_start);
+    increment /= static_cast<double>(nOfTrapz);
+    double x = x_start;
+    double f_late, f_early;
+    fnTable.clear();
+    sumTraps = 0.0F;
+
+    expr.evaluateAt(x, f_late);
+    setNumber(precision,f_late);
+    fnTable.push_back(std::pair<double, double>(x, f_late));
+    x += increment;
+    expr.evaluateAt(x, f_early);
+    setNumber(precision, f_early);
+
+    for (int i = 1; i <= nOfTrapz; i++)
+    {
+        fnTable.push_back(std::pair<double, double>(x, f_early));
+        x += increment;
+        sumTraps += increment * (f_early + f_late) / 2.0F;
+        f_late = f_early;
+        expr.evaluateAt(x, f_early);
+        setNumber(precision, f_early);
+    }    
+
+    errorRounding = nOfTrapz * 
+                  (5.0F / std::pow(10.0F, precision + 1)) * increment;
+}
+
+void setNumber(int precision, double &value)
+{
+    value *= pow(10.0, precision);
+    value = std::round(value);
+    value /= pow(10.0, precision);
+}
+\end{lstlisting}
+
+\end{document}
